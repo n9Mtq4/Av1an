@@ -295,7 +295,7 @@ class Av1an:
             # Queue execution
             for i in commands[:-1]:
                 try:
-                    tqdm_bar(i, encoder, counter, frame_probe_source, passes)
+                    tqdm_bar(i, encoder, counter, frame_probe_source, passes, self.log)
                 except Exception as e:
                     _, _, exc_tb = sys.exc_info()
                     print(f'Error at encode {e}\nAt line {exc_tb.tb_lineno}')

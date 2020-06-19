@@ -3,10 +3,11 @@ from subprocess import PIPE, STDOUT
 import re
 
 
-def tqdm_bar(i, encoder, counter, frame_probe_source, passes):
+def tqdm_bar(i, encoder, counter, frame_probe_source, passes, logf):
     f, e = i.split('|')
     f = " ffmpeg -y -hide_banner -loglevel error " + f
     f, e = f.split(), e.split()
+    logf(f'Encode command: {" ".join(f)} | {" ".join(e)}\n')
     frame = 0
     ffmpeg_pipe = subprocess.Popen(f, stdout=PIPE, stderr=STDOUT)
     pipe = subprocess.Popen(e, stdin=ffmpeg_pipe.stdout, stdout=PIPE,
