@@ -393,7 +393,7 @@ class Av1an:
             try:
                 video: Path = self.d.get("input")
                 stat_file = self.d.get('temp') / 'keyframes.log'
-                sc = aom_keyframes(video, stat_file)
+                sc = aom_keyframes(video, stat_file, self.d)
             except:
                 self.log('Error in aom_keyframes')
                 print('Error in aom_keyframes')
