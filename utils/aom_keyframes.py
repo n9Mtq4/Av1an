@@ -7,6 +7,7 @@ from tqdm import tqdm
 import re
 from pathlib import Path
 import cv2
+from .logger import log, set_log_file
 
 # This is a script that returns a list of keyframes that aom would likely place. Port of aom's C code.
 # It requires an aom first-pass stats file as input. FFMPEG first-pass file is not OK. Default filename is stats.bin.
@@ -126,7 +127,7 @@ def find_aom_keyframes(stat_file, key_freq_min):
     return keyframes_list
 
 
-def aom_keyframes(videoPath: Path, stat_file, arg_d, min_scene_len):
+def aom_keyframes(videoPath: Path, stat_file, ffmpeg_cmd_ext, min_scene_len):
         """[Get frame numbers for splits from aomenc 1 pass stat file]
         """
 
@@ -138,8 +139,6 @@ def aom_keyframes(videoPath: Path, stat_file, arg_d, min_scene_len):
         # Getting Frame Count from Metadata
         total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
         video.release()
-        
-        ffmpeg_cmd_ext = arg_d.get('ffmpeg')
         
         f, e = f'ffmpeg -y -hide_banner -loglevel error -i {videoPath.as_posix()} {ffmpeg_cmd_ext} -strict -1 -pix_fmt yuv420p -f yuv4mpegpipe - | aomenc --passes=2 --pass=1 --threads=12 --cpu-used=0 --end-usage=q --cq-level=40 --fpf={stat_file.as_posix()} -o {os.devnull} -'.split('|')
         f, e = f.split(), e.split()
@@ -160,12 +159,12 @@ def aom_keyframes(videoPath: Path, stat_file, arg_d, min_scene_len):
                 if new > frame:
                     tqdm_bar.update(new - frame)
                 frame = new
-        
+
         # aom kf-min-dist defaults to 0, but hardcoded to 3 in pass2_strategy.c test_candidate_kf. 0 matches default aom behavior
         # https://aomedia.googlesource.com/aom/+/8ac928be918de0d502b7b492708d57ad4d817676/av1/av1_cx_iface.c#2816
         # https://aomedia.googlesource.com/aom/+/ce97de2724d7ffdfdbe986a14d49366936187298/av1/encoder/pass2_strategy.c#1907
         min_scene_len = 0 if min_scene_len is None else min_scene_len
-        
+
         keyframes = find_aom_keyframes(stat_file, min_scene_len)
 
         return keyframes
