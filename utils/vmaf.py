@@ -8,6 +8,7 @@ import numpy as np
 from math import  isnan
 from scipy import interpolate
 import matplotlib
+from  utils.utils import terminate
 
 
 def read_vmaf_xml(file, percentile):
@@ -36,12 +37,18 @@ def call_vmaf( source: Path, encoded: Path, model=None, return_file=False):
         # For vmaf calculation both source and encoded segment scaled to 1080
         # for proper vmaf calculation
         fl = source.with_name(encoded.stem).with_suffix('.xml').as_posix()
-        cmd = f'ffmpeg -hide_banner -r 60 -i {source.as_posix()} -r 60 -i {encoded.as_posix()}  ' \
+        cmd = f'ffmpeg -loglevel error -hide_banner -r 60 -i {source.as_posix()} -r 60 -i {encoded.as_posix()}  ' \
               f'-filter_complex "[0:v]scale=1920:1080:flags=spline:force_original_aspect_ratio=decrease[scaled1];' \
               f'[1:v]scale=1920:1080:flags=spline:force_original_aspect_ratio=decrease[scaled2];' \
               f'[scaled2][scaled1]libvmaf=log_path={fl}{mod}" -f null - '
 
-        call = subprocess.run(cmd, shell=True, stdout=PIPE, stderr=STDOUT).stdout
+        c = subprocess.run(cmd, shell=True, stdout=PIPE, stderr=STDOUT)
+        call = c.stdout
+        # print(c.stdout.decode())
+        if 'error' in call.decode().lower():
+            print('\n\nERROR IN VMAF CALCULATION\n\n',call.decode())
+            terminate()
+
 
         if return_file:
             return fl
@@ -64,7 +71,20 @@ def plot_vmaf(inp: Path, out: Path, model=None):
             print(f'Vmaf calculation failed for files:\n {inp.stem} {out.stem}')
             sys.exit()
 
-    vmafs, mean, perc_1, perc_25, perc_75 = read_vmaf_xml(xml)
+    with open(xml, 'r') as fl:
+        f = fl.readlines()
+        f = [x.strip() for x in f if 'vmaf="' in x]
+        vmafs = []
+        for i in f:
+            vmf = i[i.rfind('="') + 2: i.rfind('"')]
+            vmafs.append(float(vmf))
+
+        vmafs = [round(float(x), 3) for x in vmafs if type(x) == float]
+
+    perc_1 = read_vmaf_xml(xml, 1)
+    perc_25 = read_vmaf_xml(xml, 25)
+    perc_75 = read_vmaf_xml(xml, 75)
+    mean = mean = round(sum(vmafs) / len(vmafs), 3)
 
     # Plot
     plt.figure(figsize=(15, 4))

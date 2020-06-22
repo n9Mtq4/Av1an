@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import atexit
 import concurrent
 import concurrent.futures
@@ -12,11 +11,8 @@ import subprocess
 import sys
 import time
 from ast import literal_eval
-from distutils.spawn import find_executable
-from multiprocessing.managers import BaseManager
 from pathlib import Path
 from subprocess import PIPE, STDOUT
-from tqdm import tqdm
 from utils import *
 
 if sys.version_info < (3, 6):
@@ -29,40 +25,11 @@ if sys.platform == 'linux':
     atexit.register(restore_term)
 
 
-# Stuff for updating encoded progress in real-time
-class MyManager(BaseManager):
-    pass
-
-
-def Manager():
-    m = MyManager()
-    m.start()
-    return m
-
-
-class Counter():
-    def __init__(self, total, initial):
-        self.first_update = True
-        self.initial = initial
-        self.left = total - initial
-        self.tqdm_bar = tqdm(total=self.left, initial=0, dynamic_ncols=True, unit="fr", leave=True, smoothing=0.2)
-
-    def update(self, value):
-        if self.first_update:
-            self.tqdm_bar.reset(self.left)
-            self.first_update = False
-        self.tqdm_bar.update(value)
-
-
-MyManager.register('Counter', Counter)
-
-
 class Av1an:
 
     def __init__(self):
         """Av1an - Python framework for AV1, VP9, VP8 encodes."""
         self.d = dict()
-        self.encoders = {'svt_av1': 'SvtAv1EncApp', 'rav1e': 'rav1e', 'aom': 'aomenc', 'vpx': 'vpxenc'}
 
     def log(self, info):
         """Default logging function, write to file."""
@@ -76,22 +43,6 @@ class Av1an:
 
         with open(self.d.get('logging'), 'a') as log:
             subprocess.run(cmd, shell=True, stdout=log, stderr=log)
-
-    def check_executables(self):
-        if not find_executable('ffmpeg'):
-            print('No ffmpeg')
-            terminate()
-
-        # Check if encoder executable is reachable
-        if self.d.get('encoder') in self.encoders:
-            enc = self.encoders.get(self.d.get('encoder'))
-
-            if not find_executable(enc):
-                print(f'Encoder {enc} not found')
-                terminate()
-        else:
-            print(f'Not valid encoder {self.d.get("encoder")} ')
-            terminate()
 
     def process_inputs(self):
         # Check input file for being valid
@@ -146,7 +97,6 @@ class Av1an:
                 print(f'No such model: {Path(self.d.get("vmaf_path")).as_posix()}')
                 terminate()
 
-
     def outputs_filenames(self):
         if self.d.get('output_file'):
             self.d['output_file'] = self.d.get('output_file').with_suffix('.mkv')
@@ -155,25 +105,13 @@ class Av1an:
 
     def set_logging(self):
         """Setting logging file location"""
+
         if self.d.get('logging'):
             self.d['logging'] = f"{self.d.get('logging')}.log"
         else:
             self.d['logging'] = self.d.get('temp') / 'log.log'
 
         self.log(f"Av1an Started\nCommand:\n{' '.join(sys.argv)}\n")
-
-    def setup(self):
-        """Creating temporally folders when needed."""
-        # Make temporal directories, and remove them if already presented
-        if not self.d.get('resume'):
-            if self.d.get('temp').is_dir():
-                shutil.rmtree(self.d.get('temp'))
-
-        (self.d.get('temp') / 'split').mkdir(parents=True, exist_ok=True)
-        (self.d.get('temp') / 'encode').mkdir(exist_ok=True)
-
-        if self.d.get('logging') is os.devnull:
-            self.d['logging'] = self.d.get('temp') / 'log.log'
 
     def target_vmaf(self, source):
         # TODO speed up for vmaf stuff
@@ -332,6 +270,10 @@ class Av1an:
             else:
                 initial = 0
                 total = frame_probe_fast(self.d.get('input'))
+
+                if total == 0:
+                    total = frame_probe(self.d.get('input'))
+
                 d = {'total': total, 'done': {}}
                 with open(done_path, 'w') as f:
                     json.dump(d, f)
@@ -380,9 +322,10 @@ class Av1an:
         if split_method == 'pyscene':
             queue_fix = not self.d.get('queue')
             threshold = self.d.get("threshold")
-            self.log(f'Starting scene detection Threshold: {threshold}\n')
+            min_scene_len = self.d.get('min_scene_len')
+            self.log(f'Starting scene detection Threshold: {threshold}, Min_scene_length: {min_scene_len}\n')
             try:
-                sc = pyscene(video, threshold, progress_show=queue_fix )
+                sc = pyscene(video, threshold, queue_fix, min_scene_len)
             except Exception as e:
                 self.log(f'Error in PySceneDetect: {e}\n')
                 print(f'Error in PySceneDetect{e}\n')
@@ -393,7 +336,8 @@ class Av1an:
             try:
                 video: Path = self.d.get("input")
                 stat_file = self.d.get('temp') / 'keyframes.log'
-                sc = aom_keyframes(video, stat_file, self.d)
+                min_scene_len = self.d.get('min_scene_len')
+                sc = aom_keyframes(video, stat_file, self.d, min_scene_len)
             except:
                 self.log('Error in aom_keyframes')
                 print('Error in aom_keyframes')
@@ -429,7 +373,8 @@ class Av1an:
             self.set_logging()
 
         else:
-            self.setup()
+            setup(temp, self.d.get('resume'))
+
             self.set_logging()
 
             # Splitting video and sorting big-first
@@ -505,7 +450,7 @@ class Av1an:
         self.config()
 
         # Check all executables
-        self.check_executables()
+        check_executables(self.d.get('encoder'))
 
         self.process_inputs()
         self.main_queue()
