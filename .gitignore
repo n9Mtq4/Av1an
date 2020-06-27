@@ -135,3 +135,6 @@ dmypy.json
 *.avi
 *.mkv
 *.exe
+
+# Ignore the dateset folder
+dataset
