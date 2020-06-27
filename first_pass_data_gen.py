@@ -2,6 +2,7 @@ import os
 import glob
 import struct
 import itertools
+import json
 import pandas as pd
 from typing import List, Dict
 
@@ -43,8 +44,20 @@ def read_fpfs(dir):
     return df
 
 
+def read_json(jfile):
+    with open(jfile) as f:
+      data = json.load(f)
+    
+    frame_lst = [frm['metrics'] for frm in data['frames']]
+    
+    df = pd.DataFrame(frame_lst)
+    return df
+
+
 def main():
-    df = read_fpfs("/mnt/L4/media/av1ancrf/s1_40/split")
+    fp = read_fpfs("dataset/firstpass/s1_40/split")
+    metrics = read_json("dataset/vmaf/s1_40.json")
+    df = pd.concat([fp, metrics], axis=1)
     df.to_csv('out.csv')
 
 
