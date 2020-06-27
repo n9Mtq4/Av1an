@@ -55,10 +55,14 @@ def read_json(jfile):
 
 
 def main():
-    fp = read_fpfs("dataset/firstpass/s1_40/split")
-    metrics = read_json("dataset/vmaf/s1_40.json")
+    cq_value = 40
+    dataset_name = f's1_{cq_value!s}'
+    fp = read_fpfs(f"dataset/firstpass/{dataset_name}/split")
+    metrics = read_json(f"dataset/vmaf/{dataset_name}.json")
     df = pd.concat([fp, metrics], axis=1)
-    df.to_csv('out.csv')
+    cq_col = [cq_value] * len(df)
+    df['cq_value'] = cq_col
+    df.to_csv(f'dataset/csv/{dataset_name}.csv')
 
 
 if __name__ == '__main__':
