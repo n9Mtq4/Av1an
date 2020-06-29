@@ -13,3 +13,4 @@ from .utils import *
 from .vmaf import *
 from .setup import *
 from .split import *
+from .nnvmaf import *

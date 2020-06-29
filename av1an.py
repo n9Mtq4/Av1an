@@ -144,6 +144,10 @@ class Av1an:
             if self.boost:
                 commands = boosting(self.boost_limit, self.boost_range, source, commands, self.passes)
 
+            # nn quality test
+            if True:
+                commands = nn_qual(commands, 90)
+
             # first pass reuse
             if self.reuse_first_pass:
                 commands = remove_first_pass_from_commands(commands, self.passes)

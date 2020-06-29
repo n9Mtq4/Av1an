@@ -1,4 +1,5 @@
 
+import time
 import os
 from psutil import virtual_memory
 import shutil
@@ -56,6 +57,10 @@ def setup(temp: Path, resume):
 
     (temp / 'split').mkdir(parents=True, exist_ok=True)
     (temp / 'encode').mkdir(exist_ok=True)
+    
+    print("Copy now!")
+    time.sleep(3)
+    print("Sleep done")
 
 
 def outputs_filenames(inp: Path, out:Path):
