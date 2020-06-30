@@ -55,7 +55,7 @@ def read_json(jfile):
 
 
 def main():
-    cq_value = 40
+    cq_value = 60
     dataset_name = f's1_{cq_value!s}'
     fp = read_fpfs(f"dataset/firstpass/{dataset_name}/split")
     metrics = read_json(f"dataset/vmaf/{dataset_name}.json")

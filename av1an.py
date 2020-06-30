@@ -146,7 +146,7 @@ class Av1an:
 
             # nn quality test
             if True:
-                commands = nn_qual(commands, 90)
+                commands = nn_qual(commands, 84)
 
             # first pass reuse
             if self.reuse_first_pass:

@@ -136,8 +136,9 @@ def get_chunk_vmaf(fpf, cq):
 
 
 def binary_search_for_qual(fpf, target):
-    mincq = 24
-    maxcq = 55
+    pm_cq = 10
+    mincq = 40 - pm_cq
+    maxcq = 40 + pm_cq
     for i in range(6):
         test_cq = (mincq + maxcq) / 2
         probe_vmaf = get_chunk_vmaf(fpf, test_cq)
