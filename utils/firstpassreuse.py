@@ -65,6 +65,21 @@ def reindex_chunk(chunk_stats: List[Dict]):
         frm_stats['frame'] = i
 
 
+def zero_first_frame(frame_stats: Dict):
+    """
+    The first frame in the chunk needs to have some fields zeroed. These fields refer to the previous frame, which
+    no longer exists after the video is split. This sets the fields in place.
+
+    :param frame_stats: The stats dictionary for the first frame
+    :return: None
+    """
+    zero_fields = ['pcnt_inter', 'pcnt_motion', 'pcnt_second_ref', 'pcnt_third_ref', 'pcnt_neutral', 'MVr', 'mvr_abs',
+                   'MVc', 'mvc_abs', 'MVrv', 'MVcv', 'mv_in_out_count', 'new_mv_count', 'raw_error_stdev']
+
+    for zero_field in zero_fields:
+        frame_stats[zero_field] = 0
+
+
 def compute_eos_stats(chunk_stats: List[Dict], old_eos: Dict):
     """
     The end of sequence stat is a final packet at the end of the log. It contains the sum of all the previous
@@ -110,6 +125,7 @@ def segment_first_pass(temp, framenums):
 
         chunk_stats = stats[frm_start_idx:frm_end_idx]
         reindex_chunk(chunk_stats)
+        zero_first_frame(chunk_stats[0])
         chunk_stats = chunk_stats + [compute_eos_stats(chunk_stats, eos_stats)]
 
         write_first_pass_log(os.path.join(temp, "split", log_name), chunk_stats)
