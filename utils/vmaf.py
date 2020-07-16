@@ -44,7 +44,8 @@ def call_vmaf(source: Path, encoded: Path, model, n_threads, return_file=False):
 
     # For vmaf calculation both source and encoded segment scaled to 1080
     # for proper vmaf calculation
-    fl = source.with_name(encoded.stem).with_suffix('.xml').as_posix()
+    fl_path = source.with_name(encoded.stem).with_suffix('.xml')
+    fl = fl_path.as_posix()
     cmd = f'ffmpeg -loglevel error -hide_banner -r 60 -i {source.as_posix()} -r 60 -i {encoded.as_posix()}  ' \
           f'-filter_complex "[0:v]scale=1920:1080:flags=spline:force_original_aspect_ratio=decrease[scaled1];' \
           f'[1:v]scale=1920:1080:flags=spline:force_original_aspect_ratio=decrease[scaled2];' \
@@ -58,7 +59,7 @@ def call_vmaf(source: Path, encoded: Path, model, n_threads, return_file=False):
         terminate()
 
     if return_file:
-        return fl
+        return fl_path
 
     call = call.decode().strip()
     vmf = call.split()[-1]
@@ -75,7 +76,7 @@ def plot_vmaf(inp: Path, out: Path, model=None):
 
     xml = call_vmaf(inp, out, n_threads=0, model=model, return_file=True)
 
-    if not Path(xml).exists():
+    if not xml.exists():
         print(f'Vmaf calculation failed for files:\n {inp.stem} {out.stem}')
         sys.exit()
 
