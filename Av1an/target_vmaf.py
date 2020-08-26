@@ -116,17 +116,21 @@ def get_closest(q_list, q, positive=True):
     return min(q_list, key=lambda x: abs(x - q))
 
 
-def weighted_search(num1, vmaf1, num2, vmaf2, target):
+def weighted_search(q1, v1, q2, v2, target) -> int:
     """
-    Returns weighted value closest to searched
+    Returns cq value that should be closest to the target vmaf value with a linear interpolation.
+
+    :param q1: cq of point1
+    :param v1: vmaf of point1
+    :param q2: cq of point2
+    :param v2: vmaf of point2
+    :param target: the vmaf to aim for
+    :return: a q value that should be close to the target vmaf
     """
-    dif1 = abs(target - vmaf2)
-    dif2 = abs(target - vmaf1)
-
-    tot = dif1 + dif2
-
-    new_point = int(round(num1 * (dif1 / tot) + (num2 * (dif2 / tot))))
-    return new_point
+    # point-slope form (x=vmaf, y=q), solved for y=q
+    m = (q2 - q1) / (v2 - v1)
+    new_q = m * (target - v1) + q1
+    return round(new_q)
 
 
 def target_vmaf_search(chunk: Chunk, frames, args: Args):
@@ -194,6 +198,7 @@ def target_vmaf(chunk: Chunk, args: Args):
                     f"Vmaf: {sorted([x[0] for x in vmaf_cq], reverse=True)}\n"
                     f"Target Q: {args.min_q} Vmaf: {vmaf_cq[-1][0]}\n\n")
 
+            # the best cq could be anywhere in vmaf_cq, we need to look for it
             return vmaf_cq[-1][1]
 
         q, q_vmaf = get_target_q(vmaf_cq, args.vmaf_target)
