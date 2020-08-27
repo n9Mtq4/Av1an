@@ -165,16 +165,22 @@ def target_vmaf_search(chunk: Chunk, frames, args: Args):
         return vmaf_cq, True
 
     for _ in range(args.vmaf_steps - 2):
-        new_point = weighted_search(vmaf_cq[-2][1], vmaf_cq[-2][0], vmaf_cq[-1][1], vmaf_cq[-1][0], args.vmaf_target)
-        if new_point in [x[1] for x in vmaf_cq]:
-            return vmaf_cq, False
+        new_cq = weighted_search(vmaf_cq[-2][1], vmaf_cq[-2][0], vmaf_cq[-1][1], vmaf_cq[-1][0], args.vmaf_target)
+        # If the weighted search suggests we try a point we've already done, we can assume that the cq is very close,
+        # and we can exit early.
+        if new_cq in [x[1] for x in vmaf_cq]:
+            # we need to put this point at the end of the list
+            # get the vmaf from the last time we tried this cq
+            new_vmaf = vmaf_cq[[x[1] for x in vmaf_cq].index(new_cq)][1]
+            vmaf_cq.append((new_vmaf, new_cq))
+            return vmaf_cq, True
 
-        last_q = new_point
+        last_q = new_cq
 
-        q_list.append(new_point)
-        score = vmaf_probe(chunk, new_point, args)
+        q_list.append(new_cq)
+        score = vmaf_probe(chunk, new_cq, args)
         next_q = get_closest(q_list, last_q, positive=score >= args.vmaf_target)
-        vmaf_cq.append((score, new_point))
+        vmaf_cq.append((score, new_cq))
 
     return vmaf_cq, False
 
@@ -192,13 +198,18 @@ def target_vmaf(chunk: Chunk, args: Args):
                     f"Vmaf: {sorted([x[0] for x in vmaf_cq], reverse=True)}\n"
                     f"Target Q: {args.max_q} Vmaf: {vmaf_cq[-1][0]}\n\n")
 
-            else:
+            elif vmaf_cq[-1][1] == args.min_q:
                 log(f"Chunk: {chunk.name}, Fr: {frames}\n"
                     f"Q: {sorted([x[1] for x in vmaf_cq])}, Early Skip Low CQ\n"
                     f"Vmaf: {sorted([x[0] for x in vmaf_cq], reverse=True)}\n"
                     f"Target Q: {args.min_q} Vmaf: {vmaf_cq[-1][0]}\n\n")
 
-            # the best cq could be anywhere in vmaf_cq, we need to look for it
+            else:
+                log(f"Chunk: {chunk.name}, Fr: {frames}\n"
+                    f"Q: {sorted([x[1] for x in vmaf_cq])}, Early Skip Hit VMAF\n"
+                    f"Vmaf: {sorted([x[0] for x in vmaf_cq], reverse=True)}\n"
+                    f"Target Q: {args.min_q} Vmaf: {vmaf_cq[-1][0]}\n\n")
+
             return vmaf_cq[-1][1]
 
         q, q_vmaf = get_target_q(vmaf_cq, args.vmaf_target)
