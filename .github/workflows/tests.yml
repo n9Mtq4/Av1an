@@ -18,6 +18,26 @@ env:
   temp: .temp
 
 jobs:
+  unittest:
+    name: pytest
+    runs-on: ubuntu-latest
+    container: registry.gitlab.com/luigi311/av1-docker:latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install requirements
+        run: |
+          apt-get update && apt-get install -y ${{ env.deps }}
+          pip3 install --no-cache-dir -r requirements.txt
+          pip3 install pytest
+      - name: Download videos
+        run: |
+          for url in raw.githubusercontent.com/OpenVisualCloud/SVT-AV1-Resources/master randomderp.com; do
+            curl -LO https://$url/video.tar.gz && break
+          done
+          tar xf video.tar.gz
+      - name: Run unit tests
+        run: |
+          pytest
   validate:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
