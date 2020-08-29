@@ -3,6 +3,7 @@
 
 import sys
 from math import isnan
+from typing import NamedTuple, List, Tuple
 
 import matplotlib
 import numpy as np
@@ -116,7 +117,7 @@ def get_closest(q_list, q, positive=True):
     return min(q_list, key=lambda x: abs(x - q))
 
 
-def weighted_search(q1, v1, q2, v2, target) -> int:
+def suggest_cq_value(q1, v1, q2, v2, target) -> int:
     """
     Returns cq value that should be closest to the target vmaf value with a linear interpolation.
 
@@ -131,6 +132,59 @@ def weighted_search(q1, v1, q2, v2, target) -> int:
     m = (q2 - q1) / (v2 - v1)
     new_q = m * (target - v1) + q1
     return round(new_q)
+
+
+class VmafPoint(NamedTuple):
+    vmaf: float
+    q: int
+
+
+def get_vmaf_from_vmafpoint_list(vmaf_points: List[VmafPoint], cq) -> float:
+    """
+    Gets the vmaf for a vmaf_point given by cq in a vmaf_point list
+    Assumes that vmaf_point.q == cq for some vmaf_point in vmaf_points
+
+    :param vmaf_points: the vmaf points list
+    :param cq: the q value
+    :return: the vmaf for the q value
+    """
+    if cq not in [x.q for x in vmaf_points]:
+        raise ValueError(f'cq={cq} not in vmaf_points={vmaf_points!r}')
+    return vmaf_points[[x.q for x in vmaf_points].index(cq)].vmaf
+
+
+def target_vmaf_seach_new(chunk: Chunk, args: Args) -> Tuple[List[VmafPoint], bool]:
+    
+    vmaf_points = []
+    
+    # probe the middle point
+    probe_cq = (args.max_q + args.min_q) // 2
+    vmaf_score = vmaf_probe(chunk, probe_cq, args)
+    vmaf_points.append(VmafPoint(vmaf_score, probe_cq))
+    
+    # probe an end point for early exit
+    probe_cq = args.min_q if vmaf_score < args.vmaf_target else args.max_q
+    vmaf_score = vmaf_probe(chunk, probe_cq, args)
+    vmaf_points.append(VmafPoint(vmaf_score, probe_cq))
+    
+    # test high/low cq early exit
+    if (probe_cq == args.min_q and vmaf_score < args.vmaf_target) or \
+            (probe_cq == args.max_q and vmaf_score > args.vmaf_target):
+        return vmaf_points, True
+    
+    # newton's method
+    for _ in range(args.vmaf_steps - 2):
+        # use a linear interpolation to get the next cq value to probe
+        probe_cq = suggest_cq_value(*vmaf_points[-2], *vmaf_points[-1], args.vmaf_target)
+        # if we're told to probe a cq we've already done, we can break out of this loop
+        if probe_cq in [x.q for x in vmaf_points]:
+            vmaf_score = get_vmaf_from_vmafpoint_list(vmaf_points, probe_cq)
+            vmaf_points.append(VmafPoint(vmaf_score, probe_cq))
+            return vmaf_points, True
+        vmaf_score = vmaf_probe(chunk, probe_cq, args)
+        vmaf_points.append(VmafPoint(vmaf_score, probe_cq))
+    
+    return vmaf_points, False
 
 
 def target_vmaf_search(chunk: Chunk, frames, args: Args):
@@ -165,7 +219,7 @@ def target_vmaf_search(chunk: Chunk, frames, args: Args):
         return vmaf_cq, True
 
     for _ in range(args.vmaf_steps - 2):
-        new_cq = weighted_search(vmaf_cq[-2][1], vmaf_cq[-2][0], vmaf_cq[-1][1], vmaf_cq[-1][0], args.vmaf_target)
+        new_cq = suggest_cq_value(vmaf_cq[-2][1], vmaf_cq[-2][0], vmaf_cq[-1][1], vmaf_cq[-1][0], args.vmaf_target)
         # If the weighted search suggests we try a point we've already done, we can assume that the cq is very close,
         # and we can exit early.
         if new_cq in [x[1] for x in vmaf_cq]:
